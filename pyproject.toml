@@ -1,0 +1,23 @@
+[build-system]
+requires = ["setuptools", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "agentic-user-api"
+version = "0.1.0"
+description = "User preferences and profile management API for the Agentic platform"
+requires-python = ">=3.11"
+dependencies = [
+  "boto3",
+  "pydantic>=2.0.0",
+  "python-jose[cryptography]>=3.3.0"
+]
+
+[project.optional-dependencies]
+dev = [
+  "pytest",
+  "moto[boto3]",
+]
+
+[tool.setuptools]
+packages = ["api"]

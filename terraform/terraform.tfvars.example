@@ -1,0 +1,18 @@
+aws_region  = "eu-west-1"
+project_name = "agentic-user-api"
+stage        = "dev"
+
+# DynamoDB table name (can be shared across stages if you prefer)
+preferences_table_name = "agentic-user-preferences-dev"
+
+# S3 bucket name for profile images
+s3_bucket_name = "agentic-user-images"
+
+# From the `agentic-auth` repo / Cognito stack
+# Format: https://cognito-idp.{region}.amazonaws.com/{user_pool_id}
+cognito_issuer_url = "https://cognito-idp.eu-west-1.amazonaws.com/eu-west-1_ABCDEF"
+
+# App client IDs allowed to call this API (frontend, etc.)
+cognito_allowed_client_ids = [
+  "frontend_client_id_here",
+]
