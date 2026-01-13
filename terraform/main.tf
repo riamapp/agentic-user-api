@@ -15,7 +15,7 @@ terraform {
 
 provider "aws" {
   region  = var.aws_region
-  profile = "AdministratorAccess-253490754184"
+  profile = "default"
 }
 
 locals {
@@ -78,7 +78,7 @@ resource "aws_s3_bucket_cors_configuration" "images" {
       "x-amz-sdk-checksum-algorithm",
     ]
     allowed_methods = ["GET", "PUT", "HEAD"]
-    allowed_origins = ["*"]  # In production, restrict this to your frontend domain
+    allowed_origins = ["*"] # In production, restrict this to your frontend domain
     expose_headers  = ["ETag"]
     max_age_seconds = 3000
   }
@@ -178,6 +178,14 @@ resource "null_resource" "lambda_package" {
 
 locals {
   lambda_zip_path = "${path.module}/../user_lambda.zip"
+  # Use a combination of source file hashes to ensure Lambda updates when code changes
+  lambda_source_hash = base64sha256(join("", [
+    filemd5("${path.module}/../pyproject.toml"),
+    join("", [
+      for f in fileset("${path.module}/../api", "**/*.py") :
+      filesha256("${path.module}/../api/${f}")
+    ])
+  ]))
 }
 
 # Lambda function
@@ -188,7 +196,7 @@ resource "aws_lambda_function" "user_api" {
   runtime       = "python3.12"
 
   filename         = local.lambda_zip_path
-  source_code_hash = filebase64sha256(local.lambda_zip_path)
+  source_code_hash = local.lambda_source_hash
 
   depends_on = [null_resource.lambda_package]
 
@@ -208,9 +216,10 @@ resource "aws_apigatewayv2_api" "user_api" {
   protocol_type = "HTTP"
 
   cors_configuration {
-    allow_origins = ["*"] # Configure this properly for production
+    allow_origins = ["*"] # Allow all origins
     allow_methods = ["GET", "POST", "PUT", "DELETE", "OPTIONS"]
-    allow_headers = ["Content-Type", "Authorization"]
+    allow_headers = ["Content-Type", "Authorization", "X-Amz-Date", "X-Amz-Security-Token"]
+    allow_credentials = false
     max_age       = 300
   }
 }
@@ -236,6 +245,7 @@ resource "aws_apigatewayv2_integration" "user_lambda" {
   integration_method     = "POST"
   payload_format_version = "2.0"
 }
+
 
 # Routes
 resource "aws_apigatewayv2_route" "get_preferences" {
@@ -281,6 +291,39 @@ resource "aws_apigatewayv2_route" "delete_image" {
   target             = "integrations/${aws_apigatewayv2_integration.user_lambda.id}"
   authorizer_id      = aws_apigatewayv2_authorizer.cognito.id
   authorization_type = "JWT"
+}
+
+# OPTIONS routes for CORS preflight (bypass authorization, route to Lambda)
+resource "aws_apigatewayv2_route" "options_preferences" {
+  api_id    = aws_apigatewayv2_api.user_api.id
+  route_key = "OPTIONS /user/preferences"
+
+  target             = "integrations/${aws_apigatewayv2_integration.user_lambda.id}"
+  authorization_type = "NONE"
+}
+
+resource "aws_apigatewayv2_route" "options_upload_url" {
+  api_id    = aws_apigatewayv2_api.user_api.id
+  route_key = "OPTIONS /upload-url"
+
+  target             = "integrations/${aws_apigatewayv2_integration.user_lambda.id}"
+  authorization_type = "NONE"
+}
+
+resource "aws_apigatewayv2_route" "options_download_url" {
+  api_id    = aws_apigatewayv2_api.user_api.id
+  route_key = "OPTIONS /download-url/{proxy+}"
+
+  target             = "integrations/${aws_apigatewayv2_integration.user_lambda.id}"
+  authorization_type = "NONE"
+}
+
+resource "aws_apigatewayv2_route" "options_delete_image" {
+  api_id    = aws_apigatewayv2_api.user_api.id
+  route_key = "OPTIONS /delete-image/{proxy+}"
+
+  target             = "integrations/${aws_apigatewayv2_integration.user_lambda.id}"
+  authorization_type = "NONE"
 }
 
 # Stage

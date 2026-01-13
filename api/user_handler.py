@@ -69,6 +69,10 @@ def lambda_handler(event, context):
         else:
             path = raw_path
 
+        # Handle OPTIONS for CORS preflight (before auth check)
+        if method == "OPTIONS":
+            return _response(200, {})
+
         # Extract user ID from JWT token
         user_id = get_user_id_from_event(event)
         if not user_id:
@@ -133,10 +137,6 @@ def lambda_handler(event, context):
             if success:
                 return _response(204, {})
             return _response(500, {"message": "Failed to delete image"})
-
-        # Handle OPTIONS for CORS
-        if method == "OPTIONS":
-            return _response(200, {})
 
         return _response(404, {"message": "Not found"})
     
