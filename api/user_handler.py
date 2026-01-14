@@ -80,11 +80,13 @@ def lambda_handler(event, context):
 
         # GET /user/preferences
         if path == "/user/preferences" and method == "GET":
-            prefs = _get_preferences_repo().get_preferences(user_id=user_id)
+            prefs = _get_preferences_repo().get_all_preferences(user_id=user_id)
             if not prefs:
                 # Return default/empty preferences
                 return _response(200, {"theme": None, "displayName": None, "displayPicture": None})
-            return _response(200, prefs.model_dump(exclude={"user_id"}))
+            # Return all attributes except user_id
+            prefs_dict = {k: v for k, v in prefs.items() if k != "user_id"}
+            return _response(200, prefs_dict)
 
         # PUT /user/preferences
         if path == "/user/preferences" and method == "PUT":

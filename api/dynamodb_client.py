@@ -23,6 +23,16 @@ class PreferencesRepository:
             "displayPicture": raw.get("displayPicture"),
         }
         return UserPreferences(**prefs)
+    
+    def get_all_preferences(self, user_id: str) -> Optional[dict]:
+        """Get all user preferences as a dict, returns None if not found."""
+        resp = self._table.get_item(Key={"user_id": user_id})
+        raw = resp.get("Item")
+        if not raw:
+            return None
+        
+        # Return all attributes from DynamoDB (boto3 resource API already deserializes them)
+        return dict(raw)
 
     def create_or_update_preferences(
         self, user_id: str, prefs_in: UserPreferencesUpdate
